@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Dynamic Buttons from DB</title>
+    <style>
+        body, html {
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        #button-container {
+            position: fixed;
+            top: 30%;
+            height: 66.6%;
+            width: 20%;
+            background-color: #f1f1f1;
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .my-button {
+            display: block;
+            width: 80%;
+            margin-bottom: 50px;
+        }
+
+        .data-container {
+            display: none;
+        }
+
+        #content {
+            margin-left: 20%;
+            height: 66.6%;
+            padding: 10px;
+        }
+
+        .button-wrapper {
+            position: relative;
+            padding: 10px;
+        }
+
+        .button-text {
+            margin-bottom: 10px;
+        }
+
+        #popup {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: #fff;
+            padding: 20px;
+            border: 1px solid #ccc;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+            z-index: 9999;
+        }
+
+
+    </style>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+</head>
+<body>
+    <div id="button-container">
+        <!-- Buttons will be dynamically added here -->
+    </div>
+
+    <div id="content">
+        <!-- Data will be displayed here -->
+    </div>
+
+    <div id="popup">
+        <p>Привет</p>
+    </div>
+
+    <script>
+        $(document).ready(function() {
+            $(document).on('click', '.my-button', function() {
+                var buttonName = $(this).data('order_status');
+                var dataContainer = $(this).parent().find('.data-container');
+                dataContainer.toggle();
+                if (dataContainer.is(':visible')) {
+                    $.ajax({
+                        url: '/get_data_from_db',
+                        type: 'GET',
+                        data: { order_status: buttonName },
+                        success: function(response) {
+                            var additionalInfo = "Дополнительная информация";
+                            dataContainer.html(response.data + "<br>" + additionalInfo);
+                        }
+                    });
+                }
+            });
+        });
+
+
+            function loadButtonsFromDB() {
+                $.ajax({
+                    url: '/get_buttons_from_db',
+                    type: 'GET',
+                    success: function(response) {
+                        var buttonContainer = $('#button-container');
+                        buttonContainer.empty();
+                        response.buttons.forEach(function(button) {
+                            var buttonWrapper = $('<div>').addClass('button-wrapper');
+                            var buttonElement = $('<button>').addClass('my-button').text('Подробнее');
+                            var textElement = $('<div>').addClass('button-text').text('что-то');
+
+                            buttonWrapper.data('order_status', button.order_status);
+                            buttonWrapper.data('data', button.data);
+                            buttonWrapper.append(buttonElement, textElement);
+                            buttonContainer.append(buttonWrapper);
+                        });
+                    }
+                });
+            }
+
+            loadButtonsFromDB();
+            setInterval(loadButtonsFromDB, 5000);
+    </script>
+</body>
+</html>

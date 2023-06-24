@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Филиал 1</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='filial.css') }}">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.0/dist/css/bootstrap.min.css">
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+    <audio id="notification-sound" src="{{ url_for('static', filename='sound.mp3') }}"></audio>
+</head>
+<body>
+    <div class="header">
+        <h1>CoffeeTime</h1>
+        <p>Филиал 1</p>
+    </div>
+
+    <div id="button-container">
+        <!-- Buttons will be dynamically added here -->
+    </div>
+
+    <div class="popup-container">
+        <div class="popup-content">
+            <!-- Здесь разместите содержимое вашего всплывающего блока -->
+            <div class="data-container"></div>
+        </div>
+    </div>
+
+    <div id="content">
+        <!-- Data will be displayed here -->
+    </div>
+
+    <script>
+        //var notificationSound = new Audio('http://soundbible.com/grab.php?id=2156&type=mp3');
+        $(document).ready(function() {
+            $(document).on('click', '.my-button', function() {
+                var buttonName = $(this).data('order_status');
+                var popupContainer = $('.popup-container');
+                
+                if (popupContainer.is(':hidden')) {
+                    $.ajax({
+                        url: '/get_data_from_db',
+                        type: 'GET',
+                        data: { order_status: buttonName },
+                        success: function(response) {
+                            if (response.data) {
+                                var userData = response.data.user;
+                                var orderTextJson = response.data.order.order_text;
+                                var orderStatus = response.data.order.order_status;
+                                var orderTime = response.data.order.order_time;
+                                if (orderStatus === 1) {
+                                    var notificationSound = document.getElementById('notification-sound');
+                                        notificationSound.play();
+                                    }
+
+
+                                // Декодирование JSON
+                                var orderText = JSON.parse(orderTextJson);
+
+                                var contentContainer = $('<div>').addClass('content-container');
+
+                                var userContainer = $('<div>').addClass('user-data');
+                                userContainer.append($('<p>').text('ID: ' + userData.id));
+                                userContainer.append($('<p>').text('Имя: ' + userData.name));
+                                userContainer.append($('<p>').text('Номер телефона: ' + userData.phone_number));
+                                userContainer.append($('<p>').text('ID в Telegram: ' + userData.IDtelegram));
+                                contentContainer.append(userContainer);
+
+                                contentContainer.append($('<p>').text('Время: ' + orderTime));
+                                contentContainer.append($('<p>').text('Заказ: ' + orderText));
+
+                                var buttonsContainer = $('<div>').addClass('buttons-container');
+
+                                if (orderStatus === 1) {
+                                    var acceptOrderButton = $('<button>').addClass('order-complete-button ').text('Принять заказ');
+                                    var orderFailedButton = $('<button>').addClass('order-failed-button').text('Заказ приготовить не удалось');
+
+                                    acceptOrderButton.on('click', function() {
+                                        var confirmed = confirm('Вы уверены, что хотите принять заказ?');
+                                        if (confirmed) {
+                                            updateOrderStatus(2, userData.id); // Обновление статуса заказа на 2 (принят)
+                                            popupContainer.hide();
+                                        }
+                                    });
+
+                                    orderFailedButton.on('click', function() {
+                                        var confirmed = confirm('Вы уверены, что заказ приготовить не удалось?');
+                                        if (confirmed) {
+                                            updateOrderStatus(-1, userData.id); // Обновление статуса заказа на -1 (приготовить не удалось)
+                                            popupContainer.hide();
+                                        }
+                                    });
+
+                                    buttonsContainer.append(acceptOrderButton, orderFailedButton);
+                                } else if (orderStatus === 2) {
+                                    var orderReadyButton = $('<button>').addClass('order-complete-button ').text('Заказ готов');
+                                    var orderFailedButton = $('<button>').addClass('order-failed-button').text('Заказ приготовить не удалось');
+
+                                    orderReadyButton.on('click', function() {
+                                        var confirmed = confirm('Вы уверены, что заказ готов?');
+                                        if (confirmed) {
+                                            updateOrderStatus(3, userData.id); // Обновление статуса заказа на 3 (готов)
+                                            popupContainer.hide();
+                                        }
+                                    });
+
+                                    orderFailedButton.on('click', function() {
+                                        var confirmed = confirm('Вы уверены, что заказ приготовить не удалось?');
+                                        if (confirmed) {
+                                            updateOrderStatus(-1, userData.id); // Обновление статуса заказа на -1 (приготовить не удалось)
+                                            popupContainer.hide();
+                                        }
+                                    });
+
+                                    buttonsContainer.append(orderReadyButton, orderFailedButton);
+                                }
+
+                                popupContainer.html(contentContainer);
+                                popupContainer.append(buttonsContainer);
+                            } else {
+                                popupContainer.html('Данные пользователя не найдены.');
+                            }
+                        }
+                    });
+                }
+
+                popupContainer.show();
+
+
+            });
+
+
+            function updateOrderStatus(status, order_id) {
+                $.ajax({
+                    url: '/update_order_status',
+                    type: 'POST',
+                    data: { status: status, order_id: order_id },
+                    success: function(response) {
+                        console.log('Статус заказа успешно обновлен');
+                    },
+                    error: function(error) {
+                        //console.log(status);
+                        //console.log(order_id);
+                        console.log('Ошибка при обновлении статуса заказа:', error);
+                    }
+                });
+            }
+
+
+
+            $(document).on('click', '.popup-container .order-complete-button, .popup-container .order-failed-button', function() {
+                $('.popup-container').hide();
+            });
+
+
+            $(document).on('click', '#button-container .my-button', function() {
+                $('.popup-container').show();
+
+
+
+            });
+
+                    // Функция для обновления таймера каждую секунду
+                    function formatTime(timeValue) {
+                      var minutes = Math.floor(timeValue / 60);
+                      var seconds = timeValue % 60;
+                      minutes = (isNaN(minutes)) ? '00' : (minutes < 10) ? '0' + minutes : minutes;
+                      seconds = (seconds < 10) ? '0' + seconds : seconds;
+                      return minutes + ':' + seconds;
+                    }
+
+                    function loadButtonsFromDB() {
+                          var buttonContainer = $('#button-container');
+                          buttonContainer.empty();
+                          buttonContainer.hide();
+
+                          $.ajax({
+                            url: '/get_buttons_from_db',
+                            type: 'GET',
+                            async: false,
+                            success: function(response) {
+                              response.orders.forEach(function(order) {
+                                if (order.filial === 'Филиал 1') {
+                                  var buttonElement = $('<button>').addClass('my-button').text('Подробнее');
+                                  buttonElement.data('order_status', order.order_status);
+
+                                  var userDataResponse = $.ajax({
+                                    url: '/get_data_from_db',
+                                    type: 'GET',
+                                    data: { order_status: order.order_status },
+                                    async: false
+                                  }).responseJSON;
+
+                                  if (userDataResponse.data) {
+                                    var userData = userDataResponse.data.user;
+                                    var textElementName;
+                                    var textElement;
+                                    var timerElement;
+
+                                    if (order.order_time === 'Уже тут') {
+                                      textElementName = $('<span>').text(userData.name);
+                                      textElement = $('<span>').text('Уже тут');
+                                    } else {
+                                      textElementName = $('<span>').text(userData.name);
+                                      textElement = $('<span>'); // Определение переменной textElement здесь
+                                      timerElement = $('<span>').addClass('timer');
+                                      var sendingTime = order.sending_time;
+                                      var timeParts = sendingTime.split(':');
+                                      var hours = parseInt(timeParts[0], 10);
+                                      var minutes = parseInt(timeParts[1], 10);
+                                      var seconds = parseInt(timeParts[2], 10);
+
+                                      var orderTimeValue = parseInt(order.order_time, 10); // Извлечение числового значения из order_time
+
+                                      var currentTime = new Date();
+                                      currentTime.setHours(hours);
+                                      currentTime.setMinutes(minutes);
+                                      currentTime.setSeconds(seconds);
+                                      var targetTime = new Date(currentTime.getTime());
+                                      targetTime.setMinutes(targetTime.getMinutes() + orderTimeValue); // Прибавление значения order_time к минутам
+
+                                      var startTime = new Date().getTime();
+                                      var timeValue = Math.floor((targetTime.getTime() - startTime) / 1000);
+                                      timerElement.text(formatTime(timeValue));
+                                      var intervalId = setInterval(function() {
+                                          var currentTime = new Date().getTime();
+                                          var timeDiff = targetTime - currentTime;
+
+                                          if (timeDiff <= 0) {
+                                            // Время истекло, обновляем текст таймера на "Уже тут" и останавливаем таймер
+                                            clearInterval(intervalId);
+                                            buttonWrapper.find('.timer').text('Уже тут').addClass('completed');
+                                          } else {
+                                            // Время еще не истекло, вычисляем оставшееся время
+                                            var timeValue = Math.ceil(timeDiff / 1000); // Округляем вверх для корректного отображения времени
+                                            buttonWrapper.find('.timer').text(formatTime(timeValue));
+                                          }
+                                        }, 1000);
+
+
+
+                                      }
+
+                                    var buttonWrapper = $('<div>').addClass('button-wrapper');
+                                    buttonWrapper.append(textElementName);
+                                    buttonWrapper.append(textElement); // Исправленная строка
+                                    buttonWrapper.append(timerElement);
+                                    buttonWrapper.append(buttonElement);
+                                    buttonContainer.append(buttonWrapper);
+                                  }
+                                }
+                              });
+                            }
+                          });
+
+                          buttonContainer.show();
+                        }
+
+
+
+                    function startTimer(timerElement, timeValue) {
+                      console.log(timeValue);
+                      var minutes;
+
+                      switch (timeValue) {
+                        case "5 минут":
+                          minutes = 5;
+                          break;
+                        case "10 минут":
+                          minutes = 10;
+                          break;
+                        case "20 минут":
+                          minutes = 20;
+                          break;
+                      }
+
+                      if (isNaN(minutes)) {
+                        // Если не удалось преобразовать строку в число, отобразить ошибку
+                        timerElement.text("Ошибка");
+                        return;
+                      }
+
+                      var startTime = new Date().getTime(); // Время начала таймера
+                      var targetTime = new Date().getTime() + minutes * 60 * 1000; // Удалите эту строку
+
+                      var timeValue = Math.floor((targetTime - startTime) / 1000);
+                    }
+
+                    loadButtonsFromDB();
+                    setInterval(loadButtonsFromDB, 1000);
+
+
+
+                });
+
+    </script>
+
+    <a href="/"><button class="button-back" type="button-back">Вернуться в выбору филиала</button></a>
+</body>
+</html>
